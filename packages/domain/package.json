@@ -1,0 +1,12 @@
+{
+  "name": "@tradesoft/domain",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tradesoft/contracts": "workspace:*",
+    "decimal.js": "10.6.0"
+  }
+}

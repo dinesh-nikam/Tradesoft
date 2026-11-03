@@ -1,0 +1,217 @@
+import { z } from 'zod';
+
+// Every error the API can return (05 §5.2). errors.contract.test.ts fails if this and the specification diverge.
+export const ERROR_CATALOGUE = {
+  VALIDATION_FAILED: { status: 422, title: 'Schema or domain validation failed; `errors[]` present' },
+  RESOURCE_NOT_FOUND: { status: 404, title: 'No such resource, or not visible to this principal' },
+  RESOURCE_CONFLICT: { status: 409, title: 'Generic state conflict; `detail` names the constraint' },
+  PRECONDITION_FAILED: { status: 412, title: '`If-Match` did not match' },
+  PRECONDITION_REQUIRED: { status: 428, title: 'Versioned resource updated without `If-Match`' },
+  UNSUPPORTED_MEDIA_TYPE: { status: 415, title: 'Wrong `Content-Type`' },
+  PAYLOAD_TOO_LARGE: { status: 413, title: 'Body or file over the limit' },
+  PAGE_CURSOR_INVALID: { status: 400, title: 'Cursor is malformed, tampered, or belongs to another query' },
+  FILTER_NOT_SUPPORTED: { status: 400, title: 'Unknown or non-whitelisted filter name' },
+  SORT_NOT_SUPPORTED: { status: 400, title: 'Unknown or non-whitelisted sort key' },
+  DATE_RANGE_INVALID: { status: 422, title: '`from > to`, or a non-trading date where one is required' },
+  RANGE_TOO_LARGE: {
+    status: 422,
+    title: "Span exceeds the endpoint's documented maximum; `detail` names the cap",
+  },
+  IDEMPOTENCY_KEY_REQUIRED: { status: 400, title: 'Endpoint requires the header and it was absent' },
+  IDEMPOTENCY_KEY_REUSED: { status: 422, title: 'Same key, different request fingerprint' },
+  RATE_LIMITED: { status: 429, title: 'Bucket exhausted; `Retry-After` present' },
+  INTERNAL_ERROR: { status: 500, title: 'Unhandled fault' },
+  SERVICE_UNAVAILABLE: { status: 503, title: 'Dependency down or process draining' },
+  REQUEST_TIMEOUT: { status: 504, title: 'The request exceeded the server budget' },
+  AUTH_INVALID_CREDENTIALS: {
+    status: 401,
+    title: 'Email or password wrong. Deliberately does not say which.',
+  },
+  AUTH_ACCOUNT_LOCKED: { status: 423, title: 'Too many failures; `detail` states the unlock time' },
+  AUTH_ACCOUNT_SUSPENDED: { status: 403, title: 'Account suspended or deactivated' },
+  AUTH_ACCOUNT_PENDING: { status: 403, title: 'Email not yet verified' },
+  AUTH_MFA_REQUIRED: {
+    status: 401,
+    title:
+      'The operation needs a TOTP code that was not supplied: password reset for an MFA-enrolled user (`06` §4.5). Login never returns it; see §10.5 for the two `202` outcomes',
+  },
+  AUTH_MFA_INVALID: { status: 401, title: 'Wrong or expired TOTP code' },
+  AUTH_MFA_ALREADY_ENABLED: { status: 409, title: 'Enrolment attempted twice' },
+  AUTH_TOKEN_MISSING: { status: 401, title: 'No `Authorization` header' },
+  AUTH_TOKEN_INVALID: { status: 401, title: 'Signature, issuer, audience, or format invalid' },
+  AUTH_TOKEN_EXPIRED: { status: 401, title: '`exp` passed; client should refresh' },
+  AUTH_SESSION_REVOKED: { status: 401, title: 'Session or family revoked; client must re-authenticate' },
+  AUTH_REFRESH_MISSING: { status: 401, title: 'No refresh cookie' },
+  AUTH_REFRESH_REUSED: { status: 401, title: 'Rotated token replayed; family revoked (BR-041)' },
+  AUTH_CSRF_INVALID: { status: 403, title: 'Missing or mismatched `X-CSRF-Token`' },
+  AUTH_PASSWORD_POLICY: {
+    status: 422,
+    title: 'Password does not meet the policy; `errors[]` lists each failed rule',
+  },
+  AUTH_PASSWORD_REUSED: { status: 422, title: 'Matches one of the last five passwords' },
+  AUTH_EMAIL_TAKEN: { status: 409, title: 'Email already registered' },
+  AUTHZ_FORBIDDEN: { status: 403, title: 'Authenticated but lacks the required permission' },
+  AUTHZ_SCOPE_INSUFFICIENT: { status: 403, title: 'API key lacks the scope for this route' },
+  AUTHZ_SELF_ONLY: { status: 403, title: "Another user's session or credential was addressed" },
+  INSTRUMENT_NOT_FOUND: { status: 404, title: 'No instrument with that id, or not visible' },
+  INSTRUMENT_SYMBOL_TAKEN: { status: 409, title: '`(exchange, symbol, series)` already exists' },
+  INSTRUMENT_NOT_TRADABLE: { status: 409, title: 'Listing/delisting window excludes the requested date' },
+  INSTRUMENT_HAS_HISTORY: { status: 409, title: 'Delete refused; delist instead (BR-006)' },
+  EXCHANGE_NOT_FOUND: { status: 404, title: 'Unknown exchange' },
+  CALENDAR_DAY_NOT_FOUND: { status: 404, title: 'No calendar row for that exchange and date' },
+  CALENDAR_DAY_NOT_EDITABLE: {
+    status: 409,
+    title: 'Session is in the past and bars exist; corrections must go through a correction batch',
+  },
+  SECTOR_CYCLE: { status: 422, title: 'The proposed parent would create a cycle (BR-003)' },
+  SECTOR_NOT_FOUND: { status: 404, title: 'Unknown sector' },
+  MEMBERSHIP_OVERLAP: { status: 409, title: 'Membership period overlaps an existing period (BR-004)' },
+  MEMBERSHIP_NOT_FOUND: { status: 404, title: 'No membership at that key' },
+  MEMBERSHIP_WINDOW_INVALID: { status: 422, title: '`effectiveTo` before `effectiveFrom`' },
+  GROUP_NOT_FOUND: { status: 404, title: 'Unknown market group' },
+  GROUP_CODE_TAKEN: { status: 409, title: 'Group code already exists' },
+  GROUP_DYNAMIC_RULE_INVALID: { status: 422, title: 'The dynamic rule does not compile' },
+  GROUP_IMMUTABLE_SYSTEM: { status: 403, title: 'System group cannot be edited' },
+  CORPORATE_ACTION_DUPLICATE: { status: 409, title: '`(instrument, actionType, exDate)` exists' },
+  CORPORATE_ACTION_INVALID: { status: 422, title: 'Ratio or cash amount missing for the action type' },
+  ALIAS_WINDOW_OVERLAP: { status: 409, title: 'Alias period overlaps an existing alias for the same symbol' },
+  BAR_NOT_FOUND: { status: 404, title: 'No bar at that key' },
+  BAR_RANGE_TOO_LARGE: { status: 422, title: 'Requested span exceeds the cap; `detail` gives both values' },
+  BAR_INCLUDE_PROVENANCE_FORBIDDEN: {
+    status: 403,
+    title: '`includeProvenance=true` without `ingestion:read`',
+  },
+  TIMEFRAME_INVALID: { status: 422, title: 'Not in `ref.timeframe`' },
+  TIMEFRAME_NOT_CHARTABLE: {
+    status: 422,
+    title: 'Reserved for future restrictions; currently unreachable because all ten are chartable',
+  },
+  ADJUSTMENT_INVALID: { status: 422, title: 'Not `RAW` or `ADJUSTED`' },
+  CORRECTION_CONFLICT: {
+    status: 409,
+    title: 'Row conflicts with an existing bar at the same revision basis (L4 `CONFLICTING_VALUES`)',
+  },
+  CORRECTION_STALE_REVISION: {
+    status: 409,
+    title: 'Incoming revision lower than stored (L4 `STALE_REVISION`)',
+  },
+  CORRECTION_NO_ROWS: { status: 422, title: 'Every row in the correction was rejected' },
+  CORRECTION_JUSTIFICATION_REQUIRED: {
+    status: 422,
+    title: '`marketdata:correct` requires a non-empty justification (BR-044)',
+  },
+  QUALITY_ISSUE_NOT_FOUND: { status: 404, title: 'Unknown issue' },
+  QUALITY_ISSUE_ALREADY_RESOLVED: { status: 409, title: 'Issue already has `resolved_at`' },
+  RECOMPUTE_SCOPE_INVALID: {
+    status: 422,
+    title: 'Scope names a dataset that cannot be recomputed for that timeframe',
+  },
+  IMPORT_DUPLICATE_FILE: { status: 409, title: '`sha256` already ingested; `existingBatchId` is included' },
+  IMPORT_FILE_INVALID: { status: 422, title: 'L1 failure; `detail` carries the L1 code from `03` §3.1' },
+  IMPORT_BATCH_NOT_FOUND: { status: 404, title: 'Unknown batch' },
+  IMPORT_BATCH_STATE_INVALID: { status: 409, title: 'Operation not legal from the current status (INV-07)' },
+  IMPORT_SOURCE_NOT_FOUND: { status: 404, title: 'Unknown data source' },
+  IMPORT_SOURCE_INACTIVE: { status: 409, title: 'Source is disabled' },
+  IMPORT_SUPERSEDES_INVALID: {
+    status: 422,
+    title: 'Superseded batch is not terminal, or belongs to another exchange',
+  },
+  IMPORT_EXCHANGE_UNRESOLVED: { status: 422, title: 'Declared exchange code does not exist' },
+  IMPORT_BATCH_TYPE_INVALID: { status: 422, title: 'Unknown batch type' },
+  IMPORT_REJECT_EXPORT_EMPTY: { status: 404, title: 'No rejects to export' },
+  INGESTION_CONCURRENCY_LIMIT: { status: 429, title: 'Another upload from this principal is in flight' },
+  INDICATOR_UNKNOWN: { status: 422, title: 'Code not in the indicator catalogue' },
+  INDICATOR_PARAMS_INVALID: { status: 422, title: 'Parameter outside the allowed set for that code' },
+  INDICATOR_NOT_COMPUTED: { status: 404, title: 'No values for that instrument/timeframe/code yet' },
+  RENKO_SET_NOT_FOUND: {
+    status: 404,
+    title: 'No brick set for that `(instrument, timeframe, brickPct, reversalBricks, priceSource)`',
+  },
+  RENKO_BRICK_PCT_INVALID: { status: 422, title: 'Not one of `0.1, 0.15, 0.25, 0.5, 1, 2, 3, 5`' },
+  RENKO_REVERSAL_INVALID: { status: 422, title: '`reversalBricks` outside `1..5`' },
+  RENKO_PRICE_SOURCE_INVALID: { status: 422, title: 'Not `CLOSE` or `HIGH_LOW`' },
+  RENKO_RANGE_TOO_LARGE: { status: 422, title: 'Brick count or span exceeds the cap' },
+  BREADTH_NOT_COMPUTED: { status: 404, title: 'No breadth rows for that `(group, timeframe, brickPct)`' },
+  BREADTH_GROUP_INELIGIBLE: {
+    status: 422,
+    title: 'Group is dynamic and resolves differently per date; breadth requires a static membership',
+  },
+  RS_NOT_COMPUTED: { status: 404, title: 'No snapshot for that `(group, base, window, asOf)`' },
+  RS_BASE_INVALID: {
+    status: 422,
+    title: 'Base instrument is a member of the group, or is missing daily history',
+  },
+  RS_WINDOW_INVALID: { status: 422, title: 'Not one of `21, 63, 126, 252`' },
+  RS_GROUP_TOO_LARGE: { status: 422, title: 'More than 5,000 members' },
+  RS_PRICE_MODE_INVALID: { status: 422, title: 'Not `ADJUSTED` or `RAW`' },
+  SCANNER_NOT_FOUND: { status: 404, title: 'Unknown definition, or private and not owned' },
+  SCANNER_CODE_TAKEN: { status: 409, title: '`code` already exists' },
+  SCANNER_IMMUTABLE_SYSTEM: { status: 403, title: 'System scanner edited in place; clone instead' },
+  SCANNER_CONDITION_INVALID: {
+    status: 422,
+    title: 'Unknown type, missing required parameter, or parameter outside its domain',
+  },
+  SCANNER_CONDITION_DEPTH_EXCEEDED: { status: 422, title: 'Nesting deeper than 6' },
+  SCANNER_CONDITION_COUNT_EXCEEDED: { status: 422, title: 'More than 25 nodes' },
+  SCANNER_MTF_LIMIT_EXCEEDED: { status: 422, title: 'More than one `MTF_ALIGN`' },
+  SCANNER_TIMEFRAME_NOT_SCANNABLE: {
+    status: 422,
+    title: '`timeframe` outside `{15m, 60m, 75m, 1D, 1W, 1M}`',
+  },
+  SCANNER_UNIVERSE_EMPTY: { status: 422, title: 'Universe resolved to zero instruments' },
+  SCANNER_UNIVERSE_TOO_LARGE: { status: 422, title: 'Explicit universe with more than 5,000 ids' },
+  SCANNER_PARAM_INVALID: { status: 422, title: 'Correct type, value outside the allowed set' },
+  SCANNER_SNAPSHOT_STALE: {
+    status: 409,
+    title: 'More than the configured fraction of the universe has a stale snapshot',
+  },
+  SCANNER_TIMEOUT: { status: 504, title: 'Statement exceeded `scanner.statement_timeout_ms`' },
+  SCANNER_RUN_NOT_FOUND: { status: 404, title: 'Unknown run, or not visible' },
+  SCANNER_RUN_NOT_TERMINAL: { status: 409, title: 'Cancel or result read on a non-terminal run' },
+  SCANNER_RUN_FAILED: { status: 409, title: 'Results requested for a failed run; `run.error` is the cause' },
+  SCANNER_RUN_CANCELLED: { status: 409, title: 'Results requested for a cancelled run' },
+  SCANNER_RUN_CONCURRENCY_LIMIT: { status: 429, title: 'Per-user concurrent run limit reached' },
+  CHART_ADJUSTMENT_CONFLICT: {
+    status: 422,
+    title: '`RAW` requested together with indicator overlays, which are adjusted-based',
+  },
+  CHART_OVERLAY_UNKNOWN: { status: 422, title: 'Unknown indicator overlay code' },
+  CHART_INSTRUMENT_NOT_PRICEABLE: {
+    status: 422,
+    title: 'Instrument has no bar series (e.g. a synthetic composite not yet built)',
+  },
+  DASHBOARD_NOT_READY: { status: 409, title: 'The requested `asOf` predates the first complete EOD run' },
+  JOB_NOT_FOUND: { status: 404, title: 'Unknown job' },
+  JOB_STATE_INVALID: { status: 409, title: 'Retry or cancel illegal from the current status' },
+  JOB_SCHEDULE_NOT_FOUND: { status: 404, title: 'Unknown schedule' },
+  SETTING_NOT_FOUND: { status: 404, title: 'Unknown setting key' },
+  SETTING_READ_ONLY: { status: 409, title: 'Boot-time or secret setting cannot be changed via the API' },
+  SETTING_VALUE_INVALID: { status: 422, title: "Value fails the setting's schema" },
+  AUDIT_RANGE_TOO_LARGE: { status: 422, title: 'Audit query span exceeds 90 days' },
+  AUDIT_CHAIN_BROKEN: {
+    status: 409,
+    title: 'Hash-chain verification failed for the requested range; `detail` names the first bad id',
+  },
+  API_KEY_NOT_FOUND: { status: 404, title: 'Unknown key' },
+  API_KEY_SCOPE_INVALID: {
+    status: 422,
+    title: "Scope not in the catalogue, or exceeds the issuing principal's permissions",
+  },
+  USER_NOT_FOUND: { status: 404, title: 'Unknown user' },
+  ROLE_NOT_FOUND: { status: 404, title: 'Unknown role' },
+  ROLE_BUILTIN_IMMUTABLE: { status: 403, title: 'Built-in roles cannot be deleted' },
+} as const satisfies Record<string, { status: number; title: string }>;
+
+export type ErrorCode = keyof typeof ERROR_CATALOGUE;
+export const errorCode = z.enum(Object.keys(ERROR_CATALOGUE) as [ErrorCode, ...ErrorCode[]]);
+
+/** Stable problem type URN (05 §5.1). */
+export function problemType(code: ErrorCode): string {
+  return `urn:tradesoft:problem:v1:${code.toLowerCase().replaceAll('_', '-')}`;
+}
+
+// Whether the identical request may succeed later without changes (05 §5.1 `retryable`).
+const RETRYABLE_STATUSES = new Set([429, 500, 503, 504]);
+export function isRetryableStatus(status: number): boolean {
+  return RETRYABLE_STATUSES.has(status);
+}

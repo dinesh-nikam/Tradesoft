@@ -1,0 +1,12 @@
+{
+  "name": "@tradesoft/contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0",
+    "zod": "4.6.7"
+  }
+}
