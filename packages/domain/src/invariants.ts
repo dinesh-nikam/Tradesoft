@@ -1,4 +1,4 @@
-import { Decimal } from './values';
+import { Decimal } from './values.ts';
 
 /** Application-level forms of the invariants in 01 §5. Each returns the ids it finds violated. */
 export type InvariantId = `INV-${number}`;

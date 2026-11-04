@@ -139,7 +139,7 @@ The first row is the most important one. Authorization decay in every system of 
 ### 4.2 Invitation
 
 1. Admin calls `POST /users` (`05` §11.3). The service creates the user in `PENDING_VERIFICATION` with `password_hash` set to a random 32-byte value that is never disclosed and never matches any input, and issues an `EMAIL_VERIFICATION` one-time token.
-2. The invitation email carries a link containing the token. The token is 32 random bytes, base64url, stored as SHA-256 in `iam.one_time_token.token_hash`, valid for 72 hours, single-use.
+2. The invitation email carries a link containing the token, `{PUBLIC_ORIGIN}/reset-password#token={token}`; the fragment keeps the token out of server logs and `Referer` headers. Reset mail uses the same link. The token is 32 random bytes, base64url, stored as SHA-256 in `iam.one_time_token.token_hash`, valid for 72 hours, single-use.
 3. `POST /auth/password/reset` is the only endpoint that consumes it. On success the user becomes `ACTIVE` and the token is marked consumed in the same transaction.
 4. Invitations do not disclose whether the email already exists: `POST /users` returns `409 AUTH_EMAIL_TAKEN` only to a principal holding `user:write`, which is never an anonymous caller.
 
@@ -499,6 +499,10 @@ Two steps, so that a user cannot be locked out by a half-finished enrolment (BR-
 1. `POST /auth/mfa/enroll` → server generates a secret, stores it **encrypted** in `totp_secret_ct` with `totp_enrolled_at is null`, returns `{ secret, otpauthUri, recoveryCodes }`. Recovery codes are returned here and never again. Calling enrol a second time while `totp_enrolled_at is null` replaces the pending secret; calling it when `totp_enrolled_at is not null` returns `409 AUTH_MFA_ALREADY_ENABLED`.
 2. `POST /auth/mfa/confirm` with a valid code → `totp_enrolled_at = now()`, `last_totp_counter = <counter used>`, audit event `user.mfa.enabled`, `security_event MFA_ENABLED`.
 
+The original `ck_app_user_mfa` required `totp_secret_ct` and `totp_enrolled_at` to be null together, which
+forbade exactly this pending state; migration `0015_identity` replaces it with "an enrolled account has a
+secret". Recovery codes are ten single-use `xxxxx-xxxxx` Crockford base32 codes, stored as SHA-256.
+
 A pending secret expires after **24 hours**: a background job nulls `totp_secret_ct` where `totp_enrolled_at is null` and the row is older than 24 hours, so an abandoned enrolment does not leave a credential in the database indefinitely.
 
 `DELETE /auth/mfa` requires **both** the account password and a current TOTP code. Requiring only the password would let a stolen session downgrade the account's second factor.
@@ -532,7 +536,10 @@ if (user.roles includes 'ADMIN' && user.totp_enrolled_at == null) → 202 { enro
 ```
 
 with no session row created and no cookie set. The `challengeId` is an `iam.mfa_challenge` row bound to this
-password verification (§6.4); it is the only credential `/auth/mfa/enroll` accepts from a user without a session. The SPA routes to enrolment. This is a **policy** check, not a permission: an admin without MFA is not "an admin with fewer permissions", they are an admin who cannot log in.
+password verification (§6.4); it is the only credential `/auth/mfa/enroll` and `/auth/mfa/confirm` accept from a
+user without a session. It is valid only from the same IP and user agent, for 5 minutes and 5 wrong codes, and
+only while the user has not enrolled. A successful confirmation consumes it and issues the session in the same
+transaction (decided in Phase 3; the routes are declared `public` and authorise inside the handler). The SPA routes to enrolment. This is a **policy** check, not a permission: an admin without MFA is not "an admin with fewer permissions", they are an admin who cannot log in.
 
 Enforcement is also checked at role-assignment time: `PUT /users/{id}/roles` refuses to grant `ADMIN` to a user whose `totp_enrolled_at` is null, returning `422 VALIDATION_FAILED` with `errors[0].field = "roles"` and a message naming the reason. Closing the loop at both ends means an admin cannot exist in a non-compliant state even briefly.
 
@@ -1084,6 +1091,9 @@ Two deliberate absences:
 
 Secrets are mounted as files under `/run/secrets` and read at boot by `packages/config`. Properties of the loader:
 
+Outside production, a secret with no mounted file may come from the environment, so `.env.example` works for
+local development; in production an environment-variable secret is a configuration error.
+
 1. **Files, not environment variables.** An environment variable appears in `docker inspect`, in `/proc/self/environ`, and in crash dumps. A file mounted with `0400` does not.
 2. **Read once, held in memory.** The file content is read at boot into a non-enumerable module-level binding. No component re-reads a secret file at request time.
 3. **Fail-fast validation.** The loader asserts: present, non-empty, correct length or parseable as a PEM key, and not equal to any value in a small deny-list of documented example values (`changeme`, `test`, the literal placeholder in `.env.example`). A failure exits the process with a non-zero code and a message naming the *name* of the secret, never its value.
@@ -1256,6 +1266,12 @@ An event that spans both (a failed login) writes a `security_event` only. An eve
 
 **The ordering rule is the subtle part.** The original trigger in `02` §7 selected the previous row with `ORDER BY occurred_at DESC, id DESC`. That is wrong in the presence of clock skew between the `api` and `worker` containers: if process A inserts at `t=10.000` and process B inserts at `t=9.998` (skew of 2 ms), B links to A, and a verification that walks `ORDER BY occurred_at` sees B before A and reports a break that is not a tamper.
 
+**Amended by migration `0014_audit_chain_utc`.** The function below hashed `occurred_at::text`, which
+PostgreSQL renders in the writing session's `TimeZone`, so a writer and a verifier in different time zones
+computed different hashes for the same row. The normative hash is now `audit.event_hash(prev_hash, row)`,
+which renders `occurred_at` in UTC (`YYYY-MM-DDTHH24:MI:SS.USZ`); the trigger and the verifier both call it,
+so they cannot drift apart.
+
 The corrected rule, which is the normative version:
 
 ```sql
@@ -1341,8 +1357,10 @@ BR-042 requires an `AuditEvent` in the same transaction for every state-changing
 | `sector.created`, `sector.updated` | `/sectors/*` |
 | `membership.added`, `membership.closed` | Sector and index membership endpoints |
 | `group.created`, `group.updated`, `group.deleted` | `/groups/*` |
-| `marketdata.correction.submitted` | `POST /market-data/corrections` (BR-044) |
-| `ingestion.batch.retried`, `ingestion.batch.reconciled` | Ingestion admin actions |
+| `marketdata.correction_submitted` | `POST /market-data/corrections` (BR-044) |
+| `ingestion.batch_retried`, `ingestion.batch_reconciled` | `POST /ingestion/batches/{id}/reprocess`, `/reconcile` |
+| `import.uploaded` | `POST /ingestion/uploads` |
+| `data_source.created`, `data_source.updated` | `/ingestion/sources/*` |
 | `scanner.published`, `scanner.unpublished`, `scanner.deleted` | Scanner definition lifecycle |
 | `settings.updated` | `PUT /admin/settings/{key}` |
 | `recompute.enqueued` | `POST /admin/recompute` |

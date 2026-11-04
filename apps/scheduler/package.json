@@ -1,0 +1,17 @@
+{
+  "name": "@tradesoft/scheduler",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@tradesoft/config": "workspace:*",
+    "@tradesoft/db": "workspace:*",
+    "@tradesoft/observability": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

@@ -201,19 +201,22 @@ problem (`06` §12.2).
 |---|---|---|---|
 | `NODE_ENV` | `development` | all | `development` / `test` / `production` |
 | `PORT` | `3000` | `api` | Listener port |
-| `PUBLIC_ORIGIN` | — (required) | `api` | Origin used for CORS decisions in non-production and for absolute links in mail |
+| `PUBLIC_ORIGIN` | — (required) | `api`, `worker` | Origin used for CORS decisions in non-production and for absolute links in mail |
 | `TRUST_PROXY_HOPS` | `1` | `api` | Number of proxies in front; misconfiguration breaks client IPs and rate limiting |
 | `DATABASE_POOL_MAX` | `20` | `api` | Per-process pool ceiling; `worker` uses `10` |
 | `LOG_LEVEL` | `info` | all | `trace`…`fatal`; `debug` is refused in production |
 | `LOG_SINK` | `stdout` | all | `stdout` or a file path for the log shipper |
 | `HTTP_BODY_LIMIT_BYTES` | `1048576` | `api` | JSON body ceiling |
-| `UPLOAD_MAX_BYTES` | `20971520` | `api` | CSV upload ceiling (`03` §3.1) |
+| `UPLOAD_MAX_BYTES` | `20971520` | `api` | CSV upload ceiling (`03` §3.1); at most 200 MiB |
+| `IMPORT_ROOT` | `data` | `api`, `worker` | Root of the raw-import volume; files live under `imports/{yyyy}/{mm}/` (`06` §11.2) |
 | `JOB_CONCURRENCY` | `4` | `worker` | Concurrent jobs per worker process |
 | `SCHEDULER_TICK_MS` | `15000` | `scheduler` | Schedule poll interval (`03` §6) |
 | `ANALYTICS_STALENESS_DAILY_SESSIONS` | `3` | `api` | Scanner staleness tolerance (`04` §6.2) |
 | `RATE_LIMIT_READ_PER_MIN` | `300` | `api` | Read bucket (`05` §9.1) |
 | `MAIL_FROM` | — (required) | `worker` | Envelope sender |
 | `MAIL_HOST` | — (required) | `worker` | SMTP host |
+| `MAIL_PORT` | `587` | `worker` | `465` is implicit TLS; any other port must offer STARTTLS, and the worker refuses to authenticate without it |
+| `MAIL_USER` | `MAIL_FROM` | `worker` | SMTP AUTH PLAIN user name |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | all | Trace export target; unset disables export but **not** span context |
 | `BUILD_SHA` | injected | all | Image build commit; exposed by `/meta` and every log line |
 
@@ -743,7 +746,7 @@ select details->>'route' as route, count(*) as denials, count(distinct user_id) 
 select occurred_at, actor_user_id, entity_id, after->>'justification' as justification,
        after->>'instrumentId' as instrument_id, after->>'sessionDate' as session_date
   from audit.audit_event
- where action = 'marketdata.correction.submitted'
+ where action = 'marketdata.correction_submitted'
    and occurred_at >= $1 and occurred_at < $2
  order by occurred_at;
 
@@ -1085,8 +1088,8 @@ dashboard within 60 seconds after 09:15 IST — because that is the actual worst
 **Migrations are forward-only** (`02` §8); there are therefore no "down migration" tests, and pretending
 otherwise would be worse than omitting them. What is tested:
 
-1. **From empty.** All migrations apply to an empty database; the resulting schema hash matches the
-   committed expectation; `ops.schema_migration` contains every version exactly once.
+1. **From empty.** All migrations apply to an empty database; the resulting tables and columns equal `02` §5 (a stored
+   hash is not used, because it varies across PostgreSQL versions); `ops.schema_migration` contains every version exactly once.
 2. **From the previous release.** A snapshot of the previous release's schema (a `pg_dump --schema-only`
    fixture, regenerated each release) is restored, then the new migrations apply cleanly. This is the test
    that catches a migration that assumes a clean database.
@@ -1134,7 +1137,7 @@ authorization *semantics* — whether user A can read user B's saved view — wh
 | 1. Static | `tsc --noEmit`, ESLint, Prettier check, package-boundary rule, decimal-discipline rule | 60 s | Yes |
 | 2. Unit | `packages/engines`, `packages/domain`, `packages/contracts` | 20 s | Yes |
 | 3. Contract | OpenAPI generation + assertions, error registry, decimal walk, permission matrix | 40 s | Yes |
-| 4. Integration | Testcontainers suite, all 16 concurrency scenarios, migration-from-empty and from-previous | 6 min | Yes |
+| 4. Integration | Suite against a PostgreSQL 16 service container, all 16 concurrency scenarios, migration-from-empty and from-previous | 6 min | Yes |
 | 5. Build | Container image, SBOM, Trivy scan, image digest recorded | 3 min | Yes (HIGH/CRITICAL) |
 | 6. E2E | Playwright against the built image + seeded database | 5 min | Yes on `main`; advisory on PRs |
 | 7. Security fast | SEC-T structural set, `pnpm audit --prod` | 90 s | Yes |
@@ -1610,7 +1613,7 @@ a degradation into an outage.
    select relname, pg_get_expr(relpartbound, oid) as bounds
      from pg_class c join pg_inherits i on i.inhrelid = c.oid
      join pg_class p on p.oid = i.inhparent
-    where p.relname in ('market_bar','indicator_value','audit_event','market_bar_history','domain_event')
+    where p.relname in ('market_bar','indicator_value','audit_event','market_bar_history')
     order by p.relname, relname desc limit 12;
    ```
    Compare the highest bound to `now()`. Three months ahead is the target; less than one month is a P1

@@ -1,0 +1,18 @@
+{
+  "name": "@tradesoft/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "pg": "8.23.1",
+    "croner": "11.0.0",
+    "@tradesoft/observability": "workspace:*",
+    "@tradesoft/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@tradesoft/testing": "workspace:*",
+    "@types/pg": "8.23.1"
+  }
+}

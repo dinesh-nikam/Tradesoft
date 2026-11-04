@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decimals, int64String, toDecimalString } from '../src';
+import { decimals, int64String, toDecimalString } from '../src/index.ts';
 
 describe('decimalString', () => {
   it('accepts values within numeric(18,4)', () => {

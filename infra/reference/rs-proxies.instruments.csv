@@ -1,0 +1,6 @@
+symbol,name,instrument_type,asset_class,tick_size,price_precision,is_synthetic
+GOLDBEES,Gold ETF (gold proxy),ETF,COMMODITY,0.01,2,N
+SILVERBEES,Silver ETF (silver proxy),ETF,COMMODITY,0.01,2,N
+LTGILTBEES,Long-term gilt ETF (bond proxy),ETF,FIXED_INCOME,0.01,2,N
+USDINR,US dollar / Indian rupee,CURRENCY,FX,0.0025,4,N
+GS_COMPOSITE,GS Composite (platform-defined),INDEX,COMMODITY,0.01,2,Y

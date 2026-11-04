@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DomainError, parseDecimal, parseId, parseInstant, parseIsoDate } from '../src';
+import { DomainError, parseDecimal, parseId, parseInstant, parseIsoDate } from '../src/index.ts';
 
 describe('value objects', () => {
   it('parses plain decimal literals exactly', () => {

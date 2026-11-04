@@ -12,7 +12,8 @@ async function ruleIds(code, file) {
   return result.messages.map((m) => m.ruleId);
 }
 
-describe('package boundaries', () => {
+// The first lint builds the typed program for the whole repository, which takes seconds.
+describe('package boundaries', { timeout: 30_000 }, () => {
   it('rejects a deep import into another package', async () => {
     const ids = await ruleIds(
       "import { x } from '@tradesoft/db/internal/repo';\nexport { x };\n",

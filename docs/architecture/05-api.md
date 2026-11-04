@@ -965,8 +965,8 @@ is then subject to resource-level ownership rules from `00` §4.3.
 | `POST` | `/auth/password/change` | `auth:self:manage` | Change own password |
 | `POST` | `/auth/password/forgot` | public | Request a reset link (always `202`) |
 | `POST` | `/auth/password/reset` | public (token) | Consume a reset token |
-| `POST` | `/auth/mfa/enroll` | `auth:self:manage` | Begin TOTP enrolment |
-| `POST` | `/auth/mfa/confirm` | `auth:self:manage` | Activate TOTP |
+| `POST` | `/auth/mfa/enroll` | `auth:self:manage`, or the login `challengeId` from the same client (`06` §6.5) | Begin TOTP enrolment |
+| `POST` | `/auth/mfa/confirm` | `auth:self:manage`, or the login `challengeId` from the same client (`06` §6.5) | Activate TOTP; by challenge it also consumes the challenge and returns the session, like `/auth/mfa/verify` |
 | `DELETE` | `/auth/mfa` | `auth:self:manage` | Disable TOTP (requires password + code) |
 | `GET` | `/auth/sessions` | `auth:self:manage` | List own active sessions |
 | `DELETE` | `/auth/sessions` | `auth:self:manage` | Revoke all own sessions except current |
@@ -997,6 +997,7 @@ is then subject to resource-level ownership rules from `00` §4.3.
 |---|---|---|---|
 | `GET` | `/exchanges` | `exchange:read` | List exchanges |
 | `GET` | `/exchanges/{id}` | `exchange:read` | Read an exchange |
+| `POST` | `/exchanges` | `settings:write` | Create an exchange (platform configuration, like a data source); its default session is a label, sessions come from the calendar (A8) |
 | `GET` | `/exchanges/{id}/calendar` | `exchange:read` | Calendar days in a range |
 | `PUT` | `/exchanges/{id}/calendar/{sessionDate}` | `calendar:write` | Create or update a calendar day |
 | `GET` | `/timeframes` | `exchange:read` | The `ref.timeframe` catalogue |
@@ -1892,7 +1893,7 @@ The CSV rows carry `revision` implicitly: the server computes `previous.revision
 bar. A row that would lower a revision is rejected as `CORRECTION_STALE_REVISION`.
 
 Response `202` with `Location` pointing at the correction batch. Before returning, the API writes an
-`audit_event` with `action: "marketdata.correction.submitted"`, the justification, the file hash, and
+`audit_event` with `action: "marketdata.correction_submitted"`, the justification, the file hash, and
 the count of rows per instrument. The audit write is in the same transaction as the batch insert
 (BR-042), so a correction cannot exist without its audit trail.
 

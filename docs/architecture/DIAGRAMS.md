@@ -431,8 +431,8 @@ erDiagram
         text cron
     }
     ops_domain_event {
-        timestamptz occurred_at PK
         bigint id PK
+        timestamptz occurred_at
         text event_type
         uuid aggregate_id
     }

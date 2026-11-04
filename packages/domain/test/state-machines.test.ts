@@ -10,7 +10,7 @@ import {
   transition,
   userMachine,
   type StateMachine,
-} from '../src';
+} from '../src/index.ts';
 
 // E1.1: each machine equals the Mermaid diagram in 01 §3, and every (state, event) pair is decided.
 const spec = readFileSync(

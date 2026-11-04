@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ERROR_CATALOGUE, errorCode, isRetryableStatus, problemType, type ErrorCode } from './errors';
+import { ERROR_CATALOGUE, errorCode, isRetryableStatus, problemType, type ErrorCode } from './errors.ts';
 
 // RFC 9457 problem document with the TradeSoft members (05 §5.1). Responses are open (D-05-06).
 export const problemDetails = z

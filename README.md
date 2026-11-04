@@ -2,8 +2,9 @@
 
 Production-grade market analysis platform for Indian financial markets (NSE, BSE, MCX, NCDEX, NFO).
 
-**Current state: PHASE 1 in progress — monorepo, `packages/contracts` and `packages/domain` exist; no runtime
-service exists yet** ([phase note](docs/release/phases/phase-01.md)).
+**Current state: PHASE 3 engineering complete locally — schema, seed, job runtime, identity, HTTP API and SPA
+shell exist; not yet run in CI or a browser** (phase notes:
+[1](docs/release/phases/phase-01.md), [2](docs/release/phases/phase-02.md), [3](docs/release/phases/phase-03.md)).
 This repository is therefore **not** production-ready, and will not be until the gate in
 `docs/architecture/07-operations.md` §13 is satisfied with evidence.
 
@@ -86,12 +87,15 @@ faithfully substituted by an in-memory database.
 
 pnpm is pinned in `package.json`; without a global install, prefix each command with `npx pnpm@10.34.9`.
 
-| Command              | CI stage (`07` §6.13)                          |
-| -------------------- | ---------------------------------------------- |
-| `pnpm install`       | —                                              |
-| `pnpm static`        | 1. typecheck, lint, format check               |
-| `pnpm test:unit`     | 2. unit                                        |
-| `pnpm test:contract` | 3. contract (code against `docs/architecture`) |
+| Command                                                                | CI stage (`07` §6.13)                                                                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `pnpm install`                                                         | —                                                                                                |
+| `pnpm static`                                                          | 1. typecheck, lint, format check                                                                 |
+| `pnpm test:unit`                                                       | 2. unit                                                                                          |
+| `pnpm test:contract`                                                   | 3. contract (code against `docs/architecture`)                                                   |
+| `TEST_DATABASE_URL=postgres://… pnpm test:integration`                 | 4. integration (needs a PostgreSQL role that may create databases and roles; skipped when unset) |
+| `MIGRATOR_DATABASE_URL=… pnpm db:migrate`                              | — apply migrations (`infra/postgres/roles.sql` must have run once per cluster)                   |
+| `NODE_ENV=development SEED_ALLOW=true DATABASE_URL=… pnpm db:seed:dev` | — development seed; prints the three dev passwords once                                          |
 
 ## Ground rules for contributors
 
@@ -102,5 +106,6 @@ pnpm is pinned in `package.json`; without a global install, prefix each command 
 - Analytical engines are pure functions. They never touch the database, the clock, or the network.
 - Only the ingestion module writes to `market_bar`. Everything derived is produced by jobs.
 - No module imports another module's internals. Public entrypoint only, enforced in CI.
-#   T r a d e s o f t  
- 
+  #   T r a d e s o f t 
+   
+   

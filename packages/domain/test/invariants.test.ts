@@ -9,7 +9,7 @@ import {
   queuedJobViolations,
   rankViolations,
   revisionViolations,
-} from '../src';
+} from '../src/index.ts';
 
 const bar = {
   open: d('100'),

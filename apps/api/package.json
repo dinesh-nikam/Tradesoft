@@ -1,0 +1,23 @@
+{
+  "name": "@tradesoft/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@tradesoft/config": "workspace:*",
+    "@tradesoft/contracts": "workspace:*",
+    "@tradesoft/db": "workspace:*",
+    "@tradesoft/domain": "workspace:*",
+    "@tradesoft/observability": "workspace:*",
+    "fastify": "5.12.8",
+    "pg": "8.23.1",
+    "zod": "4.6.7",
+    "croner": "11.0.0"
+  },
+  "devDependencies": {
+    "@tradesoft/testing": "workspace:*",
+    "@types/pg": "8.23.1"
+  }
+}

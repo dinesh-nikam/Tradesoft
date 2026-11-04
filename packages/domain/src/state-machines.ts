@@ -6,7 +6,7 @@ import type {
   ScannerRunStatus,
   UserStatus,
 } from '@tradesoft/contracts';
-import { DomainError } from './errors';
+import { DomainError } from './errors.ts';
 
 export interface StateMachine<S extends string, E extends string> {
   readonly name: string;

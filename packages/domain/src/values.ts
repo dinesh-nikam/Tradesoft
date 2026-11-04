@@ -1,6 +1,6 @@
 import { Decimal as DecimalJs } from 'decimal.js';
 import { instant, isoDate, uuidV7 } from '@tradesoft/contracts';
-import { DomainError } from './errors';
+import { DomainError } from './errors.ts';
 
 export type { Timeframe } from '@tradesoft/contracts';
 export { TIMEFRAMES } from '@tradesoft/contracts';

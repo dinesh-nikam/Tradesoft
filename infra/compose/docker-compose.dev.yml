@@ -1,0 +1,15 @@
+# Local PostgreSQL 16 for development (07 §3.1). Then: pnpm db:migrate && pnpm db:seed:dev
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: tradesoft
+      POSTGRES_PASSWORD: change-me
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - ../postgres/roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+      - ../postgres/dev-passwords.sql:/docker-entrypoint-initdb.d/02-dev-passwords.sql:ro
+      - tradesoft-pg:/var/lib/postgresql/data
+volumes:
+  tradesoft-pg:

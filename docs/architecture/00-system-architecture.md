@@ -271,7 +271,9 @@ Only choices that are non-obvious or contested are recorded; universally obvious
 - **Why:** ORMs optimise for entity graphs; this product's hot path is `INSERT ... ON CONFLICT` batches,
   window functions, `DISTINCT ON` and partition-aware range scans. Forcing those through an ORM produces
   unreadable generated SQL and hides plan regressions.
-- **Problem solved:** one typed schema definition (Drizzle) drives migrations and simple queries, while
+- **Problem solved:** one typed schema definition (Drizzle, generated from the migrated database) drives simple
+  queries, while migrations are the numbered SQL files of `02` §8, because partitions, triggers and deferred
+  constraints are outside what a schema-diff generator expresses; and
   analytical SQL is written explicitly, reviewed, and `EXPLAIN`-checked in CI.
 - **Operational cost:** two idioms. Contained by a written policy: any query with a window function, a
   CTE, or a `DISTINCT ON` is raw SQL and lives in `packages/db/sql/`; everything else uses the typed
@@ -608,7 +610,7 @@ anonymised subset. Production never receives seed data (see `02-database.md` §9
 
 Minimum production host: 8 vCPU, 16 GB RAM (the host class on which the `04` §10.1 budgets are stated), NVMe SSD, 100 GB plus growth headroom. Postgres is tuned
 explicitly (`shared_buffers` 4 GB, `work_mem` 64 MB, `maintenance_work_mem` 1 GB, `effective_cache_size`
-12 GB) rather than left at defaults.
+12 GB, `max_locks_per_transaction` 256 — monthly partitions put about 140 children under each partitioned table, and an unpruned query or the partition-creating migration takes a lock per child) rather than left at defaults.
 
 ---
 

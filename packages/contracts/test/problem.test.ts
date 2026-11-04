@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { collection, decimals, instant, isoDate, page, problem, problemDetails, uuidV7 } from '../src';
+import {
+  collection,
+  decimals,
+  instant,
+  isoDate,
+  page,
+  problem,
+  problemDetails,
+  uuidV7,
+} from '../src/index.ts';
 
 describe('problem', () => {
   it('builds a document that its own schema accepts', () => {

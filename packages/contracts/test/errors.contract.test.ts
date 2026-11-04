@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ERROR_CATALOGUE, problemType } from '../src';
+import { ERROR_CATALOGUE, problemType } from '../src/index.ts';
 
 // The registry must equal 05 §5.2 exactly: a code exists in code if and only if the spec lists it.
 const spec = readFileSync(new URL('../../../docs/architecture/05-api.md', import.meta.url), 'utf8').replace(

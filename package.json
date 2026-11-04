@@ -7,14 +7,19 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/web/tsconfig.json",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "static": "pnpm typecheck && pnpm lint && pnpm format:check",
-    "test:unit": "vitest run --exclude \"**/*.contract.test.ts\"",
+    "test:unit": "vitest run --exclude \"**/*.contract.test.ts\" --exclude \"**/*.integration.test.ts\"",
     "test:contract": "vitest run contract.test",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run integration.test --no-file-parallelism",
+    "db:migrate": "node packages/db/src/migrate-cli.ts",
+    "db:seed:dev": "node packages/db/src/seed-dev-cli.ts",
+    "db:import:reference": "node packages/db/src/reference-import-cli.ts",
+    "build:web": "pnpm --filter @tradesoft/web build"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

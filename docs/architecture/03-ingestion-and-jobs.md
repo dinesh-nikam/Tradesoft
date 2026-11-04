@@ -282,6 +282,18 @@ Any unclassified exception is treated as permanent, so a poison payload cannot c
 | `maintenance.reclaim_stale_jobs` | maintenance | loop in `apps/worker` every 60 s, not an `ops.job` row (see below) | worker | `{graceSeconds}` | 3 / 5 s / 60 s | none | none | stuck jobs | reclaimed count | Runs continuously |
 | `ops.send_email` | default | API (password reset) | worker | `{template, to, variables}` | 5 / 30 s / 30 min | `mail:{template}:{sha256(to+variables)}` | none | dead-letter; user retries request | send failures | Retry; mail is best-effort by design |
 
+Runtime rules fixed in Phase 3:
+
+- A handler runs inside the job's own transaction, and the job's `COMPLETED` update commits in that same
+  transaction. A handler that fails, or a worker that has lost its lock to the reaper, therefore leaves no
+  partial effect (§7.1 scenario 10).
+- The reaper dead-letters, rather than requeues, an expired job whose `attempts` already equals
+  `max_attempts`, because claiming it again would violate `ck_job_attempts`.
+- `ops.job_attempt.attempt_no` is numbered from the attempt history, not from `ops.job.attempts`, because an
+  operator retry resets `attempts`.
+- `ops.domain_event` has no correlation column; the correlation id travels in `payload.context.correlationId`
+  and dispatched jobs inherit it (`07` §4.3).
+
 Jobs that are **not** enqueued through `ops.job`: the scheduler tick, the outbox dispatcher and the reaper.
 Those are loops inside `apps/scheduler` and `apps/worker` respectively, each guarded by an advisory lock,
 because they must run even when the job table is the thing that is broken.
@@ -353,6 +365,7 @@ not the server.
 | `hashtext('tradesoft:renko:{brickSetId}')` | one brick set | Renko job |
 | `hashtext('tradesoft:breadth:{groupId}:{timeframe}:{brickPct}')` | one breadth series | breadth job |
 | `hashtext('tradesoft:derive:{instrumentId}:{timeframe}')` | one derived series | derivation job |
+| `hashtext('tradesoft:persist:{exchangeId}')` | bar writes of one exchange | `persist_bars` and `reconcile` (Phase 5), so two batches never decide L4 for the same bar at once |
 | `hashtext('audit.chain')` | audit chain | audit insert trigger |
 
 All locks are **transaction-scoped** (`pg_advisory_xact_lock`) except the scheduler and migrator, which
